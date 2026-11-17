@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
             isEnabled = false
         }
 
+        android.webkit.CookieManager.getInstance().setAcceptCookie(true)
         webView = WebView(this).apply {
     settings.javaScriptEnabled = true
     settings.domStorageEnabled = true
@@ -70,16 +71,38 @@ class MainActivity : ComponentActivity() {
     settings.setSupportMultipleWindows(true)
 
     webViewClient = object : WebViewClient() {
-        override fun onPageFinished(
-            view: WebView?,
-            url: String?
-        ) {
-            statusText.text = "Status: Eventpop Loaded"
+
+    override fun shouldOverrideUrlLoading(
+        view: WebView?,
+        request: android.webkit.WebResourceRequest?
+    ): Boolean {
+
+        val url = request?.url?.toString() ?: return false
+
+        if (url.startsWith("intent://")) {
+            val httpsUrl = url
+                .replaceFirst("intent://", "https://")
+                .substringBefore("#Intent;")
+
+            view?.loadUrl(httpsUrl)
+            return true
         }
+
+        return false
+    }
+
+    override fun onPageFinished(
+        view: WebView?,
+        url: String?
+    ) {
+        statusText.text = "Status: Eventpop Loaded"
+        android.webkit.CookieManager.getInstance().flush()
+    }
     }
 
     webChromeClient = WebChromeClient()
         }
+        android.webkit.CookieManager.getInstance().flush()
             
 
         root.addView(title)
