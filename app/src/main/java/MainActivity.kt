@@ -4,9 +4,13 @@ import android.os.Bundle
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
+import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.widget.*
 import android.graphics.Color
 import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 
 class MainActivity : ComponentActivity() {
@@ -40,6 +44,16 @@ class MainActivity : ComponentActivity() {
             setSingleLine(true)
         }
 
+        val saleDateInput = EditText(this).apply {
+            hint = "Sale Date (DD/MM/YYYY)"
+            setSingleLine(true)
+        }
+
+        val saleTimeInput = EditText(this).apply {
+            hint = "Sale Time (HH:MM, SGT)"
+            setSingleLine(true)
+        }
+
         zoneInput = EditText(this).apply {
             hint = "Preferred Zones"
             setText("A2,A1,B1")
@@ -62,51 +76,57 @@ class MainActivity : ComponentActivity() {
             isEnabled = false
         }
 
-        android.webkit.CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptCookie(true)
+
         webView = WebView(this).apply {
-    settings.javaScriptEnabled = true
-    settings.domStorageEnabled = true
-    settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
-    settings.javaScriptCanOpenWindowsAutomatically = true
-    settings.setSupportMultipleWindows(true)
 
-    webViewClient = object : WebViewClient() {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.cacheMode = WebSettings.LOAD_DEFAULT
+            settings.javaScriptCanOpenWindowsAutomatically = true
+            settings.setSupportMultipleWindows(true)
 
-    override fun shouldOverrideUrlLoading(
-        view: WebView?,
-        request: android.webkit.WebResourceRequest?
-    ): Boolean {
+            webViewClient = object : WebViewClient() {
 
-        val url = request?.url?.toString() ?: return false
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): Boolean {
 
-        if (url.startsWith("intent://")) {
-            val httpsUrl = url
-                .replaceFirst("intent://", "https://")
-                .substringBefore("#Intent;")
+                    val url = request?.url?.toString() ?: return false
 
-            view?.loadUrl(httpsUrl)
-            return true
+                    if (url.startsWith("intent://")) {
+                        val httpsUrl = url
+                            .replaceFirst("intent://", "https://")
+                            .substringBefore("#Intent;")
+
+                        view?.loadUrl(httpsUrl)
+                        return true
+                    }
+
+                    return false
+                }
+
+                override fun onPageFinished(
+                    view: WebView?,
+                    url: String?
+                ) {
+                    statusText.text = "Status: Eventpop Loaded"
+                    CookieManager.getInstance().flush()
+                }
+            }
+
+            webChromeClient = WebChromeClient()
         }
 
-        return false
-    }
+        CookieManager.getInstance().flush()
 
-    override fun onPageFinished(
-        view: WebView?,
-        url: String?
-    ) {
-        statusText.text = "Status: Eventpop Loaded"
-        android.webkit.CookieManager.getInstance().flush()
-    }
-    }
-
-    webChromeClient = WebChromeClient()
-        }
-        android.webkit.CookieManager.getInstance().flush()
-            
+        // Initial interface
 
         root.addView(title)
         root.addView(urlInput)
+        root.addView(saleDateInput)
+        root.addView(saleTimeInput)
         root.addView(zoneInput)
         root.addView(statusText)
         root.addView(startButton)
@@ -114,9 +134,10 @@ class MainActivity : ComponentActivity() {
 
         setContentView(root)
 
-        
+        // START BUTTON
 
         startButton.setOnClickListener {
+
             val url = urlInput.text.toString().trim()
 
             if (!url.startsWith("https://")) {
@@ -125,9 +146,11 @@ class MainActivity : ComponentActivity() {
             }
 
             isRunning = true
+
             window.addFlags(
-    android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-)
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+
             startButton.isEnabled = false
             stopButton.isEnabled = true
 
@@ -135,11 +158,14 @@ class MainActivity : ComponentActivity() {
 
             root.removeView(title)
             root.removeView(urlInput)
+            root.removeView(saleDateInput)
+            root.removeView(saleTimeInput)
             root.removeView(zoneInput)
             root.removeView(startButton)
 
             root.addView(
                 webView,
+                0,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     0,
@@ -150,28 +176,40 @@ class MainActivity : ComponentActivity() {
             webView.loadUrl(url)
         }
 
+        // STOP BUTTON
+
         stopButton.setOnClickListener {
+
             isRunning = false
+
             window.clearFlags(
-    android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-)
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+
             webView.stopLoading()
 
             root.removeView(webView)
+
             root.addView(title, 0)
             root.addView(urlInput, 1)
-            root.addView(zoneInput, 2)
-            root.addView(startButton, 4)
+            root.addView(saleDateInput, 2)
+            root.addView(saleTimeInput, 3)
+            root.addView(zoneInput, 4)
+            root.addView(startButton, 5)
 
             statusText.text = "Status: Stopped"
+
             startButton.isEnabled = true
             stopButton.isEnabled = false
         }
     }
 
     override fun onDestroy() {
-        webView.stopLoading()
-        webView.destroy()
+        if (::webView.isInitialized) {
+            webView.stopLoading()
+            webView.destroy()
+        }
+
         super.onDestroy()
     }
 }
