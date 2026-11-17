@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
             text = "Status: Ready"
             textSize = 16f
             setTextColor(Color.DKGRAY)
+            setPadding(0, 12, 0, 12)
         }
 
         startButton = Button(this).apply {
@@ -62,18 +63,24 @@ class MainActivity : ComponentActivity() {
         }
 
         webView = WebView(this).apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            webViewClient = object : WebViewClient() {
-                override fun onPageFinished(
-                    view: WebView?,
-                    url: String?
-                ) {
-                    statusText.text = "Eventpop page loaded"
-                }
-            }
-            webChromeClient = WebChromeClient()
+    settings.javaScriptEnabled = true
+    settings.domStorageEnabled = true
+    settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+    settings.javaScriptCanOpenWindowsAutomatically = true
+    settings.setSupportMultipleWindows(true)
+
+    webViewClient = object : WebViewClient() {
+        override fun onPageFinished(
+            view: WebView?,
+            url: String?
+        ) {
+            statusText.text = "Status: Eventpop Loaded"
         }
+    }
+
+    webChromeClient = WebChromeClient()
+        }
+            
 
         root.addView(title)
         root.addView(urlInput)
@@ -84,6 +91,8 @@ class MainActivity : ComponentActivity() {
 
         setContentView(root)
 
+        
+
         startButton.setOnClickListener {
             val url = urlInput.text.toString().trim()
 
@@ -93,6 +102,9 @@ class MainActivity : ComponentActivity() {
             }
 
             isRunning = true
+            window.addFlags(
+    android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+)
             startButton.isEnabled = false
             stopButton.isEnabled = true
 
@@ -117,6 +129,9 @@ class MainActivity : ComponentActivity() {
 
         stopButton.setOnClickListener {
             isRunning = false
+            window.clearFlags(
+    android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+)
             webView.stopLoading()
 
             root.removeView(webView)
