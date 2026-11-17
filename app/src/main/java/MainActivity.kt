@@ -5,25 +5,27 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
 import android.widget.*
-import android.view.View
 import android.graphics.Color
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var statusText: TextView
+    private lateinit var startButton: Button
+    private lateinit var stopButton: Button
     private lateinit var urlInput: EditText
     private lateinit var zoneInput: EditText
-    private lateinit var statusText: TextView
 
     private var isRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val layout = LinearLayout(this).apply {
+        val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 24, 24, 24)
+            setPadding(20, 20, 20, 20)
             setBackgroundColor(Color.WHITE)
         }
 
@@ -31,51 +33,56 @@ class MainActivity : ComponentActivity() {
             text = "TICKET HUNTER"
             textSize = 24f
             setTextColor(Color.BLACK)
-            setPadding(0, 0, 0, 20)
         }
 
         urlInput = EditText(this).apply {
-            hint = "Paste Eventpop event URL"
+            hint = "Eventpop event URL"
             setSingleLine(true)
         }
 
         zoneInput = EditText(this).apply {
-            hint = "Preferred Zones: A2,A1,B1"
-            setSingleLine(true)
+            hint = "Preferred Zones"
             setText("A2,A1,B1")
-        }
-
-        val startButton = Button(this).apply {
-            text = "START"
-        }
-
-        val stopButton = Button(this).apply {
-            text = "STOP"
-            isEnabled = false
+            setSingleLine(true)
         }
 
         statusText = TextView(this).apply {
             text = "Status: Ready"
             textSize = 16f
             setTextColor(Color.DKGRAY)
-            setPadding(0, 12, 0, 12)
+        }
+
+        startButton = Button(this).apply {
+            text = "START"
+        }
+
+        stopButton = Button(this).apply {
+            text = "STOP"
+            isEnabled = false
         }
 
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(
+                    view: WebView?,
+                    url: String?
+                ) {
+                    statusText.text = "Eventpop page loaded"
+                }
+            }
             webChromeClient = WebChromeClient()
         }
 
-        layout.addView(title)
-        layout.addView(urlInput)
-        layout.addView(zoneInput)
-        layout.addView(startButton)
-        layout.addView(stopButton)
-        layout.addView(statusText)
+        root.addView(title)
+        root.addView(urlInput)
+        root.addView(zoneInput)
+        root.addView(statusText)
+        root.addView(startButton)
+        root.addView(stopButton)
 
-        setContentView(layout)
+        setContentView(root)
 
         startButton.setOnClickListener {
             val url = urlInput.text.toString().trim()
@@ -91,30 +98,42 @@ class MainActivity : ComponentActivity() {
 
             statusText.text = "Opening Eventpop..."
 
-            webView.loadUrl(url)
-            setContentView(
-                LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    addView(statusText)
-                    addView(webView,
-                        LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            0,
-                            1f
-                        )
-                    )
-                    addView(stopButton)
-                }
+            root.removeView(title)
+            root.removeView(urlInput)
+            root.removeView(zoneInput)
+            root.removeView(startButton)
+
+            root.addView(
+                webView,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f
+                )
             )
+
+            webView.loadUrl(url)
         }
 
         stopButton.setOnClickListener {
             isRunning = false
             webView.stopLoading()
 
+            root.removeView(webView)
+            root.addView(title, 0)
+            root.addView(urlInput, 1)
+            root.addView(zoneInput, 2)
+            root.addView(startButton, 4)
+
             statusText.text = "Status: Stopped"
-            stopButton.isEnabled = false
             startButton.isEnabled = true
+            stopButton.isEnabled = false
         }
+    }
+
+    override fun onDestroy() {
+        webView.stopLoading()
+        webView.destroy()
+        super.onDestroy()
     }
 }
