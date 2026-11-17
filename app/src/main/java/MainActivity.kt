@@ -1,6 +1,8 @@
 package com.example.tickethunter
 
 import android.os.Bundle
+import android.os.CountDownTimer
+import java.text.SimpleDateFormat
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
@@ -23,13 +25,16 @@ class MainActivity : ComponentActivity() {
     private lateinit var zoneInput: EditText
 
     private var isRunning = false
+    private var countDownTimer: 
+    CountDownTimer? = null
+    private var saleTimeMillis: Long = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(20, 20, 20, 20)
+            setPadding(20, 20, 20, 60)
             setBackgroundColor(Color.WHITE)
         }
 
@@ -145,7 +150,36 @@ class MainActivity : ComponentActivity() {
                 return@setOnClickListener
             }
 
-            isRunning = true
+
+            val dateText = saleDateInput.text.toString().trim()
+val timeText = saleTimeInput.text.toString().trim()
+
+try {
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+    dateFormat.isLenient = false
+
+    val saleDate = dateFormat.parse("$dateText $timeText")
+
+    if (saleDate == null) {
+        statusText.text = "Invalid sale date or time"
+        return@setOnClickListener
+    }
+
+    saleTimeMillis = saleDate.time
+
+    if (saleTimeMillis <= System.currentTimeMillis()) {
+    statusText.text = "Sale time must be in the future"
+    return@setOnClickListener
+    }
+
+    startSaleCountdown()
+
+    isRunning = true
+
+} catch (e: Exception) {
+    statusText.text = "Please enter date and time correctly"
+    return@setOnClickListener
+}
 
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
@@ -154,7 +188,7 @@ class MainActivity : ComponentActivity() {
             startButton.isEnabled = false
             stopButton.isEnabled = true
 
-            statusText.text = "Opening Eventpop..."
+            statusText.text = "Opening Eventpop... Countdown running"
 
             root.removeView(title)
             root.removeView(urlInput)
@@ -181,7 +215,8 @@ class MainActivity : ComponentActivity() {
         stopButton.setOnClickListener {
 
             isRunning = false
-
+            countDownTimer?.cancel()
+            
             window.clearFlags(
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             )
@@ -203,8 +238,40 @@ class MainActivity : ComponentActivity() {
             stopButton.isEnabled = false
         }
     }
+private fun startSaleCountdown() {
 
+        countDownTimer?.cancel()
+
+        val remainingTime = saleTimeMillis - System.currentTimeMillis()
+
+        if (remainingTime <= 0) {
+            statusText.text = "Tickets are on sale now!"
+            return
+        }
+
+        countDownTimer = object : CountDownTimer(remainingTime, 1000) {
+
+            override fun onTick(millisUntilFinished: Long) {
+
+                val days = millisUntilFinished / (1000 * 60 * 60 * 24)
+                val hours = (millisUntilFinished / (1000 * 60 * 60)) % 24
+                val minutes = (millisUntilFinished / (1000 * 60)) % 60
+                val seconds = (millisUntilFinished / 1000) % 60
+
+                statusText.text =
+                    "Sale starts in: %02d days %02d:%02d:%02d".format(
+                        days, hours, minutes, seconds
+                    )
+            }
+
+            override fun onFinish() {
+                statusText.text = "Tickets are on sale now!"
+            }
+        }.start()
+}
     override fun onDestroy() {
+        countDownTimer?.cancel()
+        
         if (::webView.isInitialized) {
             webView.stopLoading()
             webView.destroy()
