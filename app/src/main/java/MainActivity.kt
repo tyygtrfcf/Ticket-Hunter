@@ -21,6 +21,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private lateinit var statusText: TextView
+    private lateinit var ticketDetectionText: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
     private lateinit var urlInput: EditText
@@ -77,6 +78,13 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 12, 0, 12)
         }
 
+        ticketDetectionText = TextView(this).apply {
+    text = "Get Ticket: Waiting for detection..."
+    textSize = 16f
+    setTextColor(Color.DKGRAY)
+    setPadding(0, 8, 0, 12)
+        }
+
         startButton = Button(this).apply {
             text = "START"
         }
@@ -88,88 +96,53 @@ class MainActivity : ComponentActivity() {
 
         CookieManager.getInstance().setAcceptCookie(true)
 
-        webView = WebView(this).apply {
+webView = WebView(this).apply {
 
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.cacheMode = WebSettings.LOAD_DEFAULT
-            settings.javaScriptCanOpenWindowsAutomatically = true
-            settings.setSupportMultipleWindows(true)
+    settings.javaScriptEnabled = true
+    settings.domStorageEnabled = true
+    settings.cacheMode = WebSettings.LOAD_DEFAULT
+    settings.javaScriptCanOpenWindowsAutomatically = true
+    settings.setSupportMultipleWindows(true)
 
-            webViewClient = object : WebViewClient() {
+    webViewClient = object : WebViewClient() {
 
-                override fun shouldOverrideUrlLoading(
-                    view: WebView?,
-                    request: WebResourceRequest?
-                ): Boolean {
+        override fun shouldOverrideUrlLoading(
+            view: WebView?,
+            request: WebResourceRequest?
+        ): Boolean {
 
-                    val url = request?.url?.toString() ?: return false
+            val url = request?.url?.toString() ?: return false
 
-                    if (url.startsWith("intent://")) {
-                        val httpsUrl = url
-                            .replaceFirst("intent://", "https://")
-                            .substringBefore("#Intent;")
+            if (url.startsWith("intent://")) {
+                val httpsUrl = url
+                    .replaceFirst("intent://", "https://")
+                    .substringBefore("#Intent;")
 
-                        view?.loadUrl(httpsUrl)
-                        return true
-                    }
-
-                    return false
-                }
-
-                override fun onPageFinished(
-                    view: WebView?,
-                    url: String?
-                ) {
-                    statusText.text = "Status: Eventpop Loaded"
-
-view?.evaluateJavascript(
-    """
-    (function() {
-        const elements = document.querySelectorAll(
-            'button, a, input[type="button"], input[type="submit"]'
-        );
-
-        for (const element of elements) {
-            const text = (
-                element.innerText ||
-                element.value ||
-                element.getAttribute('aria-label') ||
-                ''
-            ).trim().toLowerCase();
-
-            const rect = element.getBoundingClientRect();
-
-            if (
-                text === 'get ticket' &&
-                rect.width > 0 &&
-                rect.height > 0
-            ) {
-                return 'GET_TICKET_FOUND';
+                view?.loadUrl(httpsUrl)
+                return true
             }
+
+            return false
         }
 
-        return 'GET_TICKET_NOT_FOUND';
-    })();
-    """.trimIndent()
-) { result ->
+        override fun onPageFinished(
+            view: WebView?,
+            url: String?
+        ) {
+            statusText.text = "Status: Eventpop Loaded"
 
-    statusText.text = if (result == "\"GET_TICKET_FOUND\"") {
-        "Status: GET TICKET DETECTED!"
-    } else {
-        "Status: GET TICKET NOT FOUND"
+            view?.let { loadedView ->
+                startGetTicketWatcher(loadedView)
+            }
+
+            CookieManager.getInstance().flush()
+        }
     }
+
+    webChromeClient = WebChromeClient()
 }
 
 CookieManager.getInstance().flush()
-                }
-            }
-
-            webChromeClient = WebChromeClient()
-        }
-
-        CookieManager.getInstance().flush()
-
         // Initial interface
 
         root.addView(title)
@@ -178,6 +151,7 @@ CookieManager.getInstance().flush()
         root.addView(saleTimeInput)
         root.addView(zoneInput)
         root.addView(statusText)
+        root.addView(ticketDetectionText)
         root.addView(startButton)
         root.addView(stopButton)
 
@@ -260,6 +234,13 @@ try {
 
             isRunning = false
             countDownTimer?.cancel()
+            getTicketWatcher?.let {
+    mainHandler.removeCallbacks(it)
+}
+getTicketWatcher = null
+
+ticketDetectionText.text =
+    "Get Ticket: Waiting for detection..."
             
             window.clearFlags(
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
@@ -281,6 +262,83 @@ try {
             startButton.isEnabled = true
             stopButton.isEnabled = false
         }
+    }
+private fun startGetTicketWatcher(target: WebView) {
+
+    getTicketWatcher?.let {
+        mainHandler.removeCallbacks(it)
+    }
+
+    val watcher = object : Runnable {
+        override fun run() {
+
+            if (!isRunning) return
+
+            target.evaluateJavascript(
+                """
+                (function() {
+                    const elements = document.querySelectorAll(
+                        'button, a, input, [role="button"]'
+                    );
+
+                    for (const element of elements) {
+
+                        const text = (
+                            element.innerText ||
+                            element.value ||
+                            element.getAttribute('aria-label') ||
+                            ''
+                        ).trim().toLowerCase();
+
+                        const rect = element.getBoundingClientRect();
+
+                        if (
+                            text === 'get ticket' &&
+                            rect.width > 0 &&
+                            rect.height > 0
+                        ) {
+                            if (
+                                element.disabled ||
+                                element.getAttribute('aria-disabled') === 'true'
+                            ) {
+                                return 'GET_TICKET_DISABLED';
+                            }
+
+                            return 'GET_TICKET_FOUND';
+                        }
+                    }
+
+                    return 'GET_TICKET_NOT_FOUND';
+                })();
+                """.trimIndent()
+            ) { result ->
+
+                if (!isRunning) return@evaluateJavascript
+
+                when (result) {
+                    "\"GET_TICKET_FOUND\"" -> {
+                        ticketDetectionText.text =
+                            "Get Ticket: DETECTED - AVAILABLE"
+                    }
+
+                    "\"GET_TICKET_DISABLED\"" -> {
+                        ticketDetectionText.text =
+                            "Get Ticket: DETECTED - DISABLED"
+                    }
+
+                    else -> {
+                        ticketDetectionText.text =
+                            "Get Ticket: NOT FOUND"
+                    }
+                }
+
+                mainHandler.postDelayed(this, 1000)
+            }
+        }
+    }
+
+    getTicketWatcher = watcher
+    watcher.run()
     }
 private fun startSaleCountdown() {
 
@@ -315,6 +373,10 @@ private fun startSaleCountdown() {
 }
     override fun onDestroy() {
         countDownTimer?.cancel()
+        getTicketWatcher?.let {
+    mainHandler.removeCallbacks(it)
+}
+getTicketWatcher = null
         
         if (::webView.isInitialized) {
             webView.stopLoading()
