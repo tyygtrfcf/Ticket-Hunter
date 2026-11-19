@@ -14,6 +14,8 @@ import android.graphics.Color
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import android.os.Handler
+import android.os.Looper
 
 class MainActivity : ComponentActivity() {
 
@@ -28,6 +30,9 @@ class MainActivity : ComponentActivity() {
     private var countDownTimer: 
     CountDownTimer? = null
     private var saleTimeMillis: Long = 0L
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var getTicketWatcher: Runnable? = null
+    private var getTicketClicked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
