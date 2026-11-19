@@ -126,30 +126,38 @@ class MainActivity : ComponentActivity() {
 view?.evaluateJavascript(
     """
     (function() {
-        const elements = document.querySelectorAll('button, a, input[type="button"], input[type="submit"]');
+        const elements = document.querySelectorAll(
+            'button, a, input[type="button"], input[type="submit"]'
+        );
 
-        let found = false;
+        for (const element of elements) {
+            const text = (
+                element.innerText ||
+                element.value ||
+                element.getAttribute('aria-label') ||
+                ''
+            ).trim().toLowerCase();
 
-        elements.forEach(function(element) {
-            const text = (element.innerText || element.value || element.getAttribute('aria-label') || '').trim();
+            const rect = element.getBoundingClientRect();
 
-            if (text.toLowerCase() === 'get ticket' &&
-                element.getBoundingClientRect().width > 0 &&
-                element.getBoundingClientRect().height > 0) {
-
-                found = true;
+            if (
+                text === 'get ticket' &&
+                rect.width > 0 &&
+                rect.height > 0
+            ) {
+                return 'GET_TICKET_FOUND';
             }
-        });
+        }
 
-        return found ? 'GET_TICKET_FOUND' : 'GET_TICKET_NOT_FOUND';
+        return 'GET_TICKET_NOT_FOUND';
     })();
     """.trimIndent()
 ) { result ->
 
     statusText.text = if (result == "\"GET_TICKET_FOUND\"") {
-        "Status: Get Ticket Found!"
+        "Status: GET TICKET DETECTED!"
     } else {
-        "Status: Get Ticket Not Found"
+        "Status: GET TICKET NOT FOUND"
     }
 }
 
