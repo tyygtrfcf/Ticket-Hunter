@@ -117,7 +117,38 @@ class MainActivity : ComponentActivity() {
                     url: String?
                 ) {
                     statusText.text = "Status: Eventpop Loaded"
-                    CookieManager.getInstance().flush()
+
+view?.evaluateJavascript(
+    """
+    (function() {
+        const elements = document.querySelectorAll('button, a, input[type="button"], input[type="submit"]');
+
+        let found = false;
+
+        elements.forEach(function(element) {
+            const text = (element.innerText || element.value || element.getAttribute('aria-label') || '').trim();
+
+            if (text.toLowerCase() === 'get ticket' &&
+                element.getBoundingClientRect().width > 0 &&
+                element.getBoundingClientRect().height > 0) {
+
+                found = true;
+            }
+        });
+
+        return found ? 'GET_TICKET_FOUND' : 'GET_TICKET_NOT_FOUND';
+    })();
+    """.trimIndent()
+) { result ->
+
+    statusText.text = if (result == "\"GET_TICKET_FOUND\"") {
+        "Status: Get Ticket Found!"
+    } else {
+        "Status: Get Ticket Not Found"
+    }
+}
+
+CookieManager.getInstance().flush()
                 }
             }
 
