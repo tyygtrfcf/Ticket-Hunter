@@ -293,7 +293,7 @@ private fun startGetTicketWatcher(target: WebView) {
                         const rect = element.getBoundingClientRect();
 
                         if (
-                            text === 'get ticket' &&
+                            (text === 'get ticket' || text === 'get tickets') &&
                             rect.width > 0 &&
                             rect.height > 0
                         ) {
